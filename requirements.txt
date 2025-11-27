@@ -1,0 +1,22 @@
+# Core AWS and utility dependencies
+boto3>=1.39.7
+python-dateutil>=2.8.2
+python-dotenv>=1.0.0
+requests>=2.31.0
+
+# Amazon Bedrock AgentCore dependencies
+bedrock-agentcore
+bedrock-agentcore-starter-toolkit
+strands-agents>=0.1.0
+strands-agents-tools>=0.1.0
+
+# IoT Core dependencies
+AWSIoTPythonSDK>=1.5.4
+paho-mqtt>=1.6.1
+cryptography>=41.0.0
+botocore>=1.31.0
+
+# Backend dependencies
+flask>=2.3.0
+flask-cors>=4.0.0
+

@@ -1,0 +1,32 @@
+Converting certificates/certificate.pem.crt to Arduino format...
+============================================================
+
+Arduino Code:
+------------------------------------------------------------
+const char* device_cert = \
+"-----BEGIN CERTIFICATE-----\n" \
+"MIIDWTCCAkGgAwIBAgIUT+S99rOpqpU4VlF+P9F3h/sJylowDQYJKoZIhvcNAQEL\n" \
+"BQAwTTFLMEkGA1UECwxCQW1hem9uIFdlYiBTZXJ2aWNlcyBPPUFtYXpvbi5jb20g\n" \
+"SW5jLiBMPVNlYXR0bGUgU1Q9V2FzaGluZ3RvbiBDPVVTMB4XDTI1MTExNjExMjgx\n" \
+"N1oXDTQ5MTIzMTIzNTk1OVowHjEcMBoGA1UEAwwTQVdTIElvVCBDZXJ0aWZpY2F0\n" \
+"ZTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBALkOP023T7ofYNXJG39R\n" \
+"Fg5uZ4nf7tV+E1szSKLioaSWy6cyaUr9PJX7XqR9OFeCHV3LcVc/GJA2vG15QO38\n" \
+"aOMDHdSZMYQ30uX0zOz2wZe+gpmwz86nhl1+6RN3G0ZxBD6D7FIlSc/86Z3yEXvk\n" \
+"KWO/Y+jUZoJXBIDcKDbQbKrxw8giXSKFTYOw5otGOfS/cIEQHvaJOOdDHaoHqdMY\n" \
+"Icw0tDrk/8hEuSCAWH8WsH3gpeUjH9Xx/JUY5f/zAjfWyhJ69wHOVmUOYQ/3XU+a\n" \
+"63c+3pD0g/ETrMCaoa76+SocuIKqXun+Bu31suBTldH7wTMwxLlbBbMlOWhQPR9x\n" \
+"jDUCAwEAAaNgMF4wHwYDVR0jBBgwFoAUbpDEnczN7X9CzK7eEhZ57djY5AEwHQYD\n" \
+"VR0OBBYEFNgkAoxkIjQniGl452mE+F1G6BQyMAwGA1UdEwEB/wQCMAAwDgYDVR0P\n" \
+"AQH/BAQDAgeAMA0GCSqGSIb3DQEBCwUAA4IBAQDXg31TG5h/TUaOAuzb6hw4fIto\n" \
+"rrTDQTbRoUNoiu/RGLV2+wr5RJo81wSWeToN8vEDUqG/wTWoS2VMz8hO9sFkdLxt\n" \
+"zRdtlGuu848BmWjiXqOkZJ4FFeLN5oJqKiPOeM+Az7dyD0LfYudgrTO3KHuaAACf\n" \
+"Sk6xgxkP/c0rLSKM6ZGvVBN3YpBbdjO9ABxu2cgM1Qqm39JRyeLqhrSOrAttE7/D\n" \
+"veWv7ppmWWuz5Zr5SfdF4PQaL6PLGY7omKh2D+1UwHP0aQ9ey4+r7i4ZmY9p8e3q\n" \
+"9RsPeAYOGTNQeGDyuC0olO0Jb7FdFh/W45ijaLM+SqfwZAM3eA10Y/neV1he\n" \
+"-----END CERTIFICATE-----\n";
+
+------------------------------------------------------------
+
+Copy the above code and paste it into your ESP32 sketch!
+
+Also saved to: device_cert_arduino.txt

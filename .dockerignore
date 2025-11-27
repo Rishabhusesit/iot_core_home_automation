@@ -1,0 +1,17 @@
+.git
+.gitignore
+.venv
+**/__pycache__
+**/*.pyc
+node_modules
+voice/venv
+*.env
+*.log
+README.md
+DOCKER.md
+.DS_Store
+.idea
+.vscode
+**/.pytest_cache
+
+

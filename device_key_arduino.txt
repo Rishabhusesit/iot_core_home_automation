@@ -1,0 +1,28 @@
+const char* device_key = \
+"-----BEGIN RSA PRIVATE KEY-----\n" \
+"MIIEowIBAAKCAQEAuQ4/TbdPuh9g1ckbf1EWDm5nid/u1X4TWzNIouKhpJbLpzJp\n" \
+"Sv08lftepH04V4IdXctxVz8YkDa8bXlA7fxo4wMd1JkxhDfS5fTM7PbBl76CmbDP\n" \
+"zqeGXX7pE3cbRnEEPoPsUiVJz/zpnfIRe+QpY79j6NRmglcEgNwoNtBsqvHDyCJd\n" \
+"IoVNg7Dmi0Y59L9wgRAe9ok450Mdqgep0xghzDS0OuT/yES5IIBYfxawfeCl5SMf\n" \
+"1fH8lRjl//MCN9bKEnr3Ac5WZQ5hD/ddT5rrdz7ekPSD8ROswJqhrvr5Khy4gqpe\n" \
+"6f4G7fWy4FOV0fvBMzDEuVsFsyU5aFA9H3GMNQIDAQABAoIBAH1TiMu5OeVzGsGu\n" \
+"UVEIOUfMvZJCdh1gJPu+35Jwqcgt1/6DxYtjtYRdmNsNcvrQw9Kh1UChGqGQcEwz\n" \
+"siV6rA4SLkGs/jvtEodqIt7YvoNmIkyz0gjCq9zl9jOYloA+SgGMlp+LYVHaltzA\n" \
+"89ZTzzQeiitErafYBtS+RP3aab3al0Yr1t+IsG7/VnAL8LN2jICwMg3OJS3BGSg1\n" \
+"kGce2ZGnVqY/U+/pI/GANVogwZ2WA9zD67KstVUzpuWnN0jdQb3LzP7xbJlSTXhp\n" \
+"uEyZodMittcbyGTpmwaleBOS+ED38YB6gJIyLHtrmLMebD9qPMuTGylGWH5jwnoX\n" \
+"CH42MIECgYEA3I2ARhiC7L+oEcYe7InvMLC40vUqSRn92noMWA94wWJRQXZBrsEF\n" \
+"R5oy6BSoOOHNOdf/sxe4EqEbysOEdSB8vkflx5at1rrKz5C3RAQ72oftLyUscSMs\n" \
+"4GBDY5KEFdrjCSfKy/LpUH+fTJgU2QmbbY0Kbs1yY68Xeqveisldn9cCgYEA1sw9\n" \
+"4o4qJzpA6My1DHOhjZGbHGXGvZ9GsvvZCCOyMun5u8emHl4yl/JAqgjZuj/WsJp5\n" \
+"khSmNfw+GQ9QqxVjNqPt5tHxLpORawtj/mcjXdPKtM8obCH2TXt4Scd/fppv16Ka\n" \
+"K1j64VuOk+DvvqQSFysiPHi6S5v6LO/6FGfN4tMCgYArdNIOfavmXAkQn3neX3s6\n" \
+"m8d/AYF4b9+d2ahu/XVsnSOng1aDyVJx/kcDhXZz5sHaIN4n+odxXD8un4GM1n7d\n" \
+"uyriPaU5BwsJBNmnVDI658drH6b3D9g6yZzdlLPj3oIXfritoMop60uG+vw4m3T9\n" \
+"i+m/VUmxrIEy0YSC0hRZdwKBgBwmhlHDyfh8JPedpHiuStTv6UEugX5menCImyf6\n" \
+"7abIjUcz4iyGseDCCgF+yXIkXbGlfRtNA399wHGuVScm1Wrazxn6F76/7kX2JzO3\n" \
+"NqZcVGuf3q9VQB9leB1LPQVNnizHjabysWaJhkURLLpybECHEaSVOe0g0wfCp6a2\n" \
+"9/+rAoGBAM4zTz9mtRvsIrr615FCoyHkxXSwJ8KX19s8U6QqM9om0xXtv4SJ6/tZ\n" \
+"uCRgLK87KF75nwsCXvB/CUaXdx4TtBy4/qoz70NbJUGvgoHKL/A3BP9D/eLGX+YL\n" \
+"0BD1MKaESm9mxXoyA/34fiaS050noqP71zZa9YJ5rHO85fbnE0O/\n" \
+"-----END RSA PRIVATE KEY-----\n";
