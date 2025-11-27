@@ -1,0 +1,69 @@
+name: Deploy to AWS App Runner
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  AWS_REGION: ${{ secrets.AWS_REGION }}
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+  ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
+  APP_RUNNER_SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
+  APP_RUNNER_ECR_ROLE_ARN: ${{ secrets.APP_RUNNER_ECR_ROLE_ARN }}
+  IMAGE_TAG: ${{ github.sha }}
+
+jobs:
+  deploy:
+    name: Build & Deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+        with:
+          registry-type: private
+
+      - name: Build backend image
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f backend/Dockerfile .
+
+      - name: Push image to ECR
+        run: |
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+
+      - name: Update App Runner service
+        run: |
+          cat <<EOF > apprunner-update.json
+          {
+            "ImageRepository": {
+              "ImageIdentifier": "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}",
+              "ImageRepositoryType": "ECR",
+              "ImageConfiguration": {
+                "Port": "5000"
+              }
+            },
+            "AuthenticationConfiguration": {
+              "AccessRoleArn": "${APP_RUNNER_ECR_ROLE_ARN}"
+            },
+            "AutoDeploymentsEnabled": true
+          }
+          EOF
+
+          aws apprunner update-service \
+            --service-arn "$APP_RUNNER_SERVICE_ARN" \
+            --source-configuration file://apprunner-update.json
+
