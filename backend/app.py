@@ -70,6 +70,7 @@ except:
 
 ai_insights = []
 SIMULATED_DATA_ENABLED = os.getenv('ENABLE_SIMULATED_DATA', 'false').lower() == 'true'
+DATA_STALE_TIMEOUT = int(os.getenv('DATA_STALE_TIMEOUT_SECONDS', '120'))
 
 
 def start_simulated_data_feed():
@@ -239,7 +240,7 @@ def fetch_latest_device_state():
                             last_update = last_update.replace(tzinfo=None)
                         
                         time_diff = (now - last_update).total_seconds()
-                        if time_diff > 30:
+                        if time_diff > DATA_STALE_TIMEOUT:
                             device_data['status'] = 'offline'
                     except Exception:
                         pass
@@ -944,7 +945,7 @@ def update_device_data():
                     last_update = last_update.replace(tzinfo=None)
                 
                 time_diff = (now - last_update).total_seconds()
-                if time_diff > 30:
+                if time_diff > DATA_STALE_TIMEOUT:
                     device_data['status'] = 'offline'
             except Exception as e:
                 print(f"Error calculating time difference in update_device_data: {e}")
