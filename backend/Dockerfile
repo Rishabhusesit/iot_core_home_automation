@@ -11,6 +11,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy backend application
 COPY backend/ .
+# Copy web assets for Flask static/templates
+COPY web /web
 
 EXPOSE 5000
 
