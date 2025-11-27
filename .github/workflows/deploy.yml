@@ -13,7 +13,7 @@ env:
   APP_RUNNER_ECR_ROLE_ARN: ${{ secrets.APP_RUNNER_ECR_ROLE_ARN }}
   AWS_IOT_ENDPOINT: aka6dphv0mv57-ats.iot.us-east-1.amazonaws.com
   THING_NAME: ESP32_SmartDevice
-  ENABLE_SIMULATED_DATA: "true"
+  ENABLE_SIMULATED_DATA: "false"
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
