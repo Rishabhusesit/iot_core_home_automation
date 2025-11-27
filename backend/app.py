@@ -9,10 +9,11 @@ import boto3
 import json
 import os
 import sys
-from datetime import datetime, timedelta
-from dotenv import load_dotenv
+import random
 import threading
 import time
+from datetime import datetime, timedelta
+from dotenv import load_dotenv
 
 # Add parent directory to path for imports
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -68,6 +69,59 @@ except:
     }
 
 ai_insights = []
+SIMULATED_DATA_ENABLED = os.getenv('ENABLE_SIMULATED_DATA', 'false').lower() == 'true'
+
+
+def start_simulated_data_feed():
+    """Populate device_data with synthetic values when no real IoT feed exists."""
+    update_interval = int(os.getenv('SIMULATED_DATA_INTERVAL_SECONDS', '30'))
+
+    def _simulate_loop():
+        while True:
+            temperature = round(random.uniform(20.0, 30.0), 2)
+            humidity = round(random.uniform(35.0, 70.0), 2)
+            pressure = round(random.uniform(980.0, 1030.0), 2)
+            motion = random.choice([True, False])
+            timestamp = datetime.utcnow()
+
+            device_data['sensor_data'] = {
+                'temperature': temperature,
+                'humidity': humidity,
+                'pressure': pressure,
+                'motion': motion,
+                'timestamp': timestamp.isoformat() + 'Z'
+            }
+            device_data['relays'] = {
+                'relay1': random.choice(['on', 'off']),
+                'relay2': random.choice(['on', 'off']),
+                'relay3': random.choice(['off', 'on']),
+                'relay4': random.choice(['off', 'on'])
+            }
+            device_data['status'] = 'online'
+            device_data['last_update'] = timestamp
+            device_data['uptime_seconds'] = device_data.get('uptime_seconds', 0) + update_interval
+            device_data['wifi_rssi'] = random.randint(-80, -40)
+
+            insight = {
+                'timestamp': timestamp.isoformat() + 'Z',
+                'insights': [
+                    f"Temperature steady at {temperature}°C",
+                    "All sensors operating within normal thresholds"
+                    if 21 <= temperature <= 28 else "Temperature drift detected"
+                ],
+                'risk_level': 'low' if 21 <= temperature <= 28 else 'medium',
+                'recommendations': [
+                    "Maintain current settings",
+                    "Check ventilation" if temperature > 28 else "No action required"
+                ]
+            }
+            ai_insights.append(insight)
+            if len(ai_insights) > 50:
+                ai_insights.pop(0)
+
+            time.sleep(update_interval)
+
+    threading.Thread(target=_simulate_loop, daemon=True).start()
 
 def invoke_bedrock_model(prompt, max_tokens=1500):
     """Invoke the configured Bedrock model and return the completion text."""
@@ -900,6 +954,9 @@ def update_device_data():
 
 # Start background thread
 threading.Thread(target=update_device_data, daemon=True).start()
+
+if SIMULATED_DATA_ENABLED:
+    start_simulated_data_feed()
 
 if __name__ == '__main__':
     print("=" * 60)

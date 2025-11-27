@@ -11,6 +11,9 @@ env:
   ECR_REPOSITORY: ${{ secrets.ECR_REPOSITORY }}
   APP_RUNNER_SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
   APP_RUNNER_ECR_ROLE_ARN: ${{ secrets.APP_RUNNER_ECR_ROLE_ARN }}
+  AWS_IOT_ENDPOINT: ${{ secrets.AWS_IOT_ENDPOINT }}
+  THING_NAME: ${{ secrets.THING_NAME }}
+  ENABLE_SIMULATED_DATA: ${{ secrets.ENABLE_SIMULATED_DATA }}
   IMAGE_TAG: ${{ github.sha }}
 
 jobs:
@@ -53,7 +56,13 @@ jobs:
               "ImageIdentifier": "${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}",
               "ImageRepositoryType": "ECR",
               "ImageConfiguration": {
-                "Port": "5000"
+                "Port": "5000",
+                "RuntimeEnvironmentVariables": {
+                  "AWS_REGION": "${AWS_REGION}",
+                  "AWS_IOT_ENDPOINT": "${AWS_IOT_ENDPOINT}",
+                  "THING_NAME": "${THING_NAME}",
+                  "ENABLE_SIMULATED_DATA": "${ENABLE_SIMULATED_DATA}"
+                }
               }
             },
             "AuthenticationConfiguration": {
