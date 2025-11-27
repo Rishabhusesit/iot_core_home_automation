@@ -1,0 +1,67 @@
+name: Deploy to AWS App Runner
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  workflow_dispatch:
+
+env:
+  AWS_REGION: us-east-1
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}
+  ECR_REPOSITORY: iot-backend
+  APP_RUNNER_SERVICE_ARN: ${{ secrets.APP_RUNNER_SERVICE_ARN }}
+  APP_RUNNER_ECR_ROLE_ARN: ${{ secrets.APP_RUNNER_ECR_ROLE_ARN }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          ECR_REPOSITORY: ${{ env.ECR_REPOSITORY }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG -f backend/Dockerfile .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+
+      - name: Update App Runner service
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          APP_RUNNER_SERVICE_ARN: ${{ env.APP_RUNNER_SERVICE_ARN }}
+          IMAGE_URI: ${{ steps.build-image.outputs.image }}
+        run: |
+          # Start a new deployment with the updated image
+          # App Runner will automatically use the latest image from ECR if AutoDeploymentsEnabled is true
+          # Otherwise, we trigger a manual deployment
+          aws apprunner start-deployment \
+            --service-arn "$APP_RUNNER_SERVICE_ARN" \
+            --region "$AWS_REGION"
+          
+          echo "Deployment started. App Runner will pull the new image automatically."
+
+      - name: Deployment status
+        run: |
+          echo "✅ Deployment initiated!"
+          echo "Service ARN: ${{ env.APP_RUNNER_SERVICE_ARN }}"
+          echo "Image: ${{ steps.build-image.outputs.image }}"
+
