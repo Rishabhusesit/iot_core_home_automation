@@ -62,12 +62,12 @@ def lambda_handler(event, context):
             ai_response = invoke_bedrock_agent(sensor_data, device_id)
             analysis = parse_ai_response(ai_response)
             agent_used = True
-        else:
-            # Fallback to direct model invocation
+    else:
+        # Fallback to direct model invocation
         prompt = create_analysis_prompt(sensor_data)
         ai_response = invoke_bedrock(prompt)
         analysis = parse_ai_response(ai_response)
-            agent_used = False
+        agent_used = False
         
         # Create response message
         response_message = {
