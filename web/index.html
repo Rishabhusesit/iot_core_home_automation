@@ -368,13 +368,16 @@
 
     <script>
         // API endpoint
-        // API URL - defaults to localhost for local dev, can be overridden
-        const API_URL = (
-            window.location.hostname === 'localhost' ||
-            window.location.hostname === '127.0.0.1'
-        )
+        // API URL - defaults to localhost for dev, otherwise same host as UI
+        const isLocalEnv = ['localhost', '127.0.0.1'].includes(window.location.hostname);
+        const derivedApi = isLocalEnv
             ? 'http://localhost:5000/api'
-            : `${window.location.origin}/api`;
+            : `${window.location.protocol}//${window.location.host}/api`;
+
+        // Allow overriding via global variable but ignore falsy/"null" values
+        const API_URL = (window.APP_API_URL && window.APP_API_URL !== 'null')
+            ? window.APP_API_URL
+            : derivedApi;
 
         // Chart configurations
         const tempChart = new Chart(document.getElementById('tempChart'), {
