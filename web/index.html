@@ -369,9 +369,12 @@
     <script>
         // API endpoint
         // API URL - defaults to localhost for local dev, can be overridden
-        const API_URL = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1'
+        const API_URL = (
+            window.location.hostname === 'localhost' ||
+            window.location.hostname === '127.0.0.1'
+        )
             ? 'http://localhost:5000/api'
-            : 'https://api.noone-knowsaboutit.com/api'; // Update with your API endpoint
+            : `${window.location.origin}/api`;
 
         // Chart configurations
         const tempChart = new Chart(document.getElementById('tempChart'), {
