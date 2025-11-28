@@ -267,6 +267,24 @@ def index():
     </html>
     """
 
+@app.route('/assets/<path:filename>')
+def serve_asset(filename):
+    """Serve static assets from web/assets directory"""
+    import os
+    from flask import send_from_directory
+    
+    possible_paths = [
+        os.path.join(os.path.dirname(os.path.dirname(__file__)), 'web', 'assets'),
+        '/web/assets',
+        os.path.join(os.path.dirname(__file__), '..', 'web', 'assets')
+    ]
+    
+    for assets_path in possible_paths:
+        if os.path.exists(assets_path) and os.path.exists(os.path.join(assets_path, filename)):
+            return send_from_directory(assets_path, filename)
+    
+    return "Asset not found", 404
+
 @app.route('/api/auth/login', methods=['POST'])
 def login():
     """Authenticate user with Cognito"""
