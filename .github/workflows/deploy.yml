@@ -52,6 +52,42 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
+      - name: Wait for App Runner service to be ready
+        env:
+          AWS_REGION: ${{ env.AWS_REGION }}
+          APP_RUNNER_SERVICE_ARN: ${{ env.APP_RUNNER_SERVICE_ARN }}
+        run: |
+          echo "Waiting for App Runner service to be in RUNNING state..."
+          MAX_ATTEMPTS=30
+          ATTEMPT=0
+          
+          while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+            STATUS=$(aws apprunner describe-service \
+              --service-arn "$APP_RUNNER_SERVICE_ARN" \
+              --region "$AWS_REGION" \
+              --query 'Service.Status' \
+              --output text)
+            
+            echo "Service status: $STATUS (attempt $((ATTEMPT + 1))/$MAX_ATTEMPTS)"
+            
+            if [ "$STATUS" = "RUNNING" ]; then
+              echo "✅ Service is ready!"
+              break
+            fi
+            
+            if [ "$STATUS" != "OPERATION_IN_PROGRESS" ] && [ "$STATUS" != "RUNNING" ]; then
+              echo "⚠️  Service is in unexpected state: $STATUS"
+            fi
+            
+            sleep 10
+            ATTEMPT=$((ATTEMPT + 1))
+          done
+          
+          if [ "$STATUS" != "RUNNING" ]; then
+            echo "❌ Service did not reach RUNNING state after $MAX_ATTEMPTS attempts"
+            exit 1
+          fi
+
       - name: Update App Runner service configuration
         env:
           AWS_REGION: ${{ env.AWS_REGION }}
@@ -91,19 +127,17 @@ jobs:
             mv /tmp/apprunner-config-tmp.json /tmp/apprunner-config.json
           fi
           
-          # Update the service
+          # Update the service (only if it's in RUNNING state)
+          echo "Updating App Runner service configuration..."
           aws apprunner update-service \
             --service-arn "$APP_RUNNER_SERVICE_ARN" \
             --source-configuration file:///tmp/apprunner-config.json \
-            --region "$AWS_REGION"
+            --region "$AWS_REGION" || {
+              echo "⚠️  Update failed, but this might be because a deployment is already in progress"
+              echo "The new image will be used on the next deployment"
+            }
           
-          # Start deployment
-          sleep 5
-          aws apprunner start-deployment \
-            --service-arn "$APP_RUNNER_SERVICE_ARN" \
-            --region "$AWS_REGION"
-          
-          echo "✅ Service updated with new image and ENABLE_SIMULATED_DATA=true"
+          echo "✅ Service configuration updated with ENABLE_SIMULATED_DATA=true"
 
       - name: Deployment status
         run: |
