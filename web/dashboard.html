@@ -395,9 +395,8 @@
         if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
             API_URL = 'http://localhost:5000/api';
         } else {
-            // For CloudFront, try to use AgentCore agent or fallback to demo mode
-            // You can update this URL once backend is deployed
-            API_URL = null; // Will use demo/static mode if null
+            // Use the same origin for App Runner deployment
+            API_URL = `${window.location.origin}/api`;
         }
         
         // Demo mode flag
