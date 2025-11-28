@@ -57,10 +57,12 @@
             content: '';
             position: fixed;
             inset: 0;
-            background: url('assets/pink_futuristic_bg.jpg') center/cover no-repeat;
-            opacity: 0.55;
-            filter: saturate(1.15);
-            mix-blend-mode: lighten;
+            background-image: url('assets/pink_futuristic_bg.jpg');
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+            opacity: 0.35;
+            filter: saturate(1.05) contrast(1.05);
             transform: scale(1.05);
             z-index: 0;
         }
