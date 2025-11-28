@@ -52,20 +52,44 @@ jobs:
           docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
           echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
 
-      - name: Update App Runner service
+      - name: Update App Runner service configuration
         env:
           AWS_REGION: ${{ env.AWS_REGION }}
           APP_RUNNER_SERVICE_ARN: ${{ env.APP_RUNNER_SERVICE_ARN }}
           IMAGE_URI: ${{ steps.build-image.outputs.image }}
         run: |
-          # Start a new deployment with the updated image
-          # App Runner will automatically use the latest image from ECR if AutoDeploymentsEnabled is true
-          # Otherwise, we trigger a manual deployment
+          # Get current service configuration
+          aws apprunner describe-service \
+            --service-arn "$APP_RUNNER_SERVICE_ARN" \
+            --region "$AWS_REGION" > /tmp/service-config.json
+          
+          # Extract current config
+          SOURCE_CONFIG=$(cat /tmp/service-config.json | jq -r '.Service.SourceConfiguration')
+          
+          # Update the image URI and environment variables
+          UPDATED_CONFIG=$(echo "$SOURCE_CONFIG" | jq --arg image "$IMAGE_URI" \
+            '.ImageRepository.ImageIdentifier = $image |
+             .ImageRepository.ImageConfiguration.RuntimeEnvironmentVariables.ENABLE_SIMULATED_DATA = "true" |
+             .ImageRepository.ImageConfiguration.RuntimeEnvironmentVariables.AWS_REGION = "${{ env.AWS_REGION }}" |
+             .ImageRepository.ImageConfiguration.RuntimeEnvironmentVariables.THING_NAME = "${{ secrets.THING_NAME || "ESP32_SmartDevice" }}" |
+             (.ImageRepository.ImageConfiguration.RuntimeEnvironmentVariables.AWS_IOT_ENDPOINT = "${{ secrets.AWS_IOT_ENDPOINT }}" | if . == null then empty else . end) |
+             (.ImageRepository.ImageConfiguration.RuntimeEnvironmentVariables.DYNAMODB_TABLE = "${{ secrets.DYNAMODB_TABLE || "ESP32_ESP32_SmartDevice_Data" }}" | if . == null then empty else . end)')
+          
+          # Write updated config to file
+          echo "$UPDATED_CONFIG" > /tmp/updated-config.json
+          
+          # Update the service
+          aws apprunner update-service \
+            --service-arn "$APP_RUNNER_SERVICE_ARN" \
+            --source-configuration file:///tmp/updated-config.json \
+            --region "$AWS_REGION"
+          
+          # Start deployment
           aws apprunner start-deployment \
             --service-arn "$APP_RUNNER_SERVICE_ARN" \
             --region "$AWS_REGION"
           
-          echo "Deployment started. App Runner will pull the new image automatically."
+          echo "✅ Service updated with new image and environment variables"
 
       - name: Deployment status
         run: |
