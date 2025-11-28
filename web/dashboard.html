@@ -108,6 +108,7 @@
             justify-content: space-between;
             align-items: center;
             margin-bottom: 24px;
+            gap: 24px;
         }
 
         .header h1 {
@@ -121,6 +122,14 @@
                 0 0 20px rgba(255, 116, 255, 0.6),
                 0 0 40px rgba(255, 116, 255, 0.4),
                 0 0 70px rgba(255, 255, 255, 0.2);
+        }
+
+        .logo-mark {
+            height: 72px;
+            width: auto;
+            object-fit: contain;
+            filter: drop-shadow(0 0 12px rgba(255, 116, 255, 0.8));
+            mix-blend-mode: screen;
         }
 
         .header h1::before {
@@ -678,6 +687,7 @@
         <div class="header">
             <div class="header-top">
                 <h1>5IVESTAR HOME</h1>
+                <img src="assets/5star_logo.png" alt="5iveStar neon logo" class="logo-mark">
             </div>
             <div class="status-bar">
                 <div class="status-item">
