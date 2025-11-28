@@ -514,6 +514,72 @@
             color: #fffafc;
         }
 
+        .voice-button {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            border: 3px solid rgba(255,255,255,0.3);
+            background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.1) 100%);
+            backdrop-filter: blur(10px);
+            color: white;
+            font-size: 2.5rem;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+            position: relative;
+            z-index: 1;
+        }
+
+        .voice-button:hover {
+            transform: scale(1.05);
+            border-color: rgba(255,255,255,0.5);
+            box-shadow: 0 12px 40px rgba(255, 116, 255, 0.4);
+        }
+
+        .voice-button.listening {
+            background: linear-gradient(135deg, rgba(255, 68, 68, 0.4) 0%, rgba(255, 116, 255, 0.4) 100%);
+            border-color: rgba(255, 255, 255, 0.6);
+            animation: pulse-ring 1.5s ease-in-out infinite;
+        }
+
+        .voice-button.listening #voiceIcon {
+            animation: pulse-icon 1s ease-in-out infinite;
+        }
+
+        @keyframes pulse-ring {
+            0%, 100% {
+                box-shadow: 0 0 0 0 rgba(255, 116, 255, 0.7);
+            }
+            50% {
+                box-shadow: 0 0 0 20px rgba(255, 116, 255, 0);
+            }
+        }
+
+        @keyframes pulse-icon {
+            0%, 100% {
+                transform: scale(1);
+            }
+            50% {
+                transform: scale(1.1);
+            }
+        }
+
+        #voiceStatus {
+            font-size: 0.75rem;
+            font-weight: 600;
+            opacity: 0.9;
+        }
+
+        #voiceTranscript {
+            position: relative;
+            z-index: 1;
+        }
+
         .ai-insights {
             background: linear-gradient(150deg, rgba(45, 0, 61, 0.85), rgba(96, 0, 91, 0.75));
             margin-top: 24px;
@@ -789,6 +855,23 @@
             </div>
             <div class="response" id="nlQueryResponse">
                 <em style="opacity: 0.7;">Ask me anything about your devices...</em>
+            </div>
+        </div>
+
+        <!-- Voice Agent Card -->
+        <div class="card ai-query-card" style="background: linear-gradient(135deg, rgba(255, 95, 162, 0.4) 0%, rgba(108, 0, 124, 0.5) 100%);">
+            <h2><span class="card-icon">🎤</span> Voice Assistant</h2>
+            <div style="display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 20px 0;">
+                <button id="voiceBtn" class="voice-button" onclick="toggleVoiceAssistant()">
+                    <span id="voiceIcon">🎤</span>
+                    <span id="voiceStatus">Click to Start</span>
+                </button>
+                <div id="voiceTranscript" style="min-height: 40px; padding: 12px; background: rgba(0,0,0,0.2); border-radius: 12px; width: 100%; text-align: center; color: rgba(255,255,255,0.9); font-size: 0.9rem;">
+                    <em style="opacity: 0.7;">Your voice commands will appear here...</em>
+                </div>
+                <div id="voiceResponse" class="response" style="min-height: 60px;">
+                    <em style="opacity: 0.7;">AI responses will appear here...</em>
+                </div>
             </div>
         </div>
 
@@ -1156,6 +1239,145 @@
             const hours = Math.floor((seconds % 86400) / 3600);
             const minutes = Math.floor((seconds % 3600) / 60);
             return `${days}d ${hours}h ${minutes}m`;
+        }
+
+        // Voice Assistant
+        let recognition = null;
+        let isListening = false;
+        let synth = window.speechSynthesis;
+
+        // Initialize Web Speech API
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = true;
+            recognition.lang = 'en-US';
+
+            recognition.onstart = () => {
+                isListening = true;
+                document.getElementById('voiceBtn').classList.add('listening');
+                document.getElementById('voiceStatus').textContent = 'Listening...';
+                document.getElementById('voiceIcon').textContent = '🔴';
+                addLog('Voice recognition started', 'success');
+            };
+
+            recognition.onresult = (event) => {
+                let transcript = '';
+                for (let i = event.resultIndex; i < event.results.length; i++) {
+                    transcript += event.results[i][0].transcript;
+                }
+                document.getElementById('voiceTranscript').innerHTML = `<strong>You said:</strong> ${transcript}`;
+                
+                // If final result, process the query
+                if (event.results[event.results.length - 1].isFinal) {
+                    processVoiceCommand(transcript.trim());
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Speech recognition error:', event.error);
+                document.getElementById('voiceStatus').textContent = 'Error: ' + event.error;
+                addLog('Voice recognition error: ' + event.error, 'error');
+                stopListening();
+            };
+
+            recognition.onend = () => {
+                stopListening();
+            };
+        } else {
+            document.getElementById('voiceStatus').textContent = 'Not Supported';
+            addLog('Speech recognition not supported in this browser', 'error');
+        }
+
+        function toggleVoiceAssistant() {
+            if (!recognition) {
+                alert('Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari.');
+                return;
+            }
+
+            if (isListening) {
+                recognition.stop();
+            } else {
+                recognition.start();
+            }
+        }
+
+        function stopListening() {
+            isListening = false;
+            document.getElementById('voiceBtn').classList.remove('listening');
+            document.getElementById('voiceStatus').textContent = 'Click to Start';
+            document.getElementById('voiceIcon').textContent = '🎤';
+        }
+
+        async function processVoiceCommand(command) {
+            if (!command) return;
+
+            const responseDiv = document.getElementById('voiceResponse');
+            responseDiv.innerHTML = '<em>Processing your command...</em>';
+            addLog(`Voice command: "${command}"`, 'info');
+
+            try {
+                const response = await fetch(`${API_URL}/ai/query`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: command })
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    const aiResponse = data.response || data.answer || 'Command processed successfully';
+                    responseDiv.innerHTML = `<strong>AI Response:</strong><br>${aiResponse}`;
+                    addLog(`Voice command processed: ${aiResponse.substring(0, 50)}...`, 'success');
+                    
+                    // Speak the response
+                    speakText(aiResponse);
+
+                    // If it was a control command, refresh device status
+                    if (command.toLowerCase().includes('turn') || command.toLowerCase().includes('control') || command.toLowerCase().includes('relay')) {
+                        setTimeout(updateDashboard, 1000);
+                    }
+                } else {
+                    const errorMsg = data.error || 'Unknown error';
+                    responseDiv.innerHTML = `<strong>Error:</strong> ${errorMsg}`;
+                    addLog(`Voice command failed: ${errorMsg}`, 'error');
+                    speakText('Sorry, I encountered an error processing your command.');
+                }
+            } catch (error) {
+                console.error('Error processing voice command:', error);
+                responseDiv.innerHTML = `<strong>Error:</strong> ${error.message}`;
+                addLog(`Voice command error: ${error.message}`, 'error');
+                speakText('Sorry, I could not process your command. Please try again.');
+            }
+        }
+
+        function speakText(text) {
+            if (!synth) return;
+
+            // Cancel any ongoing speech
+            synth.cancel();
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.rate = 1.0;
+            utterance.pitch = 1.0;
+            utterance.volume = 0.8;
+            utterance.lang = 'en-US';
+
+            utterance.onstart = () => {
+                addLog('Speaking response...', 'info');
+            };
+
+            utterance.onerror = (event) => {
+                console.error('Speech synthesis error:', event);
+                addLog('Speech synthesis error', 'error');
+            };
+
+            synth.speak(utterance);
         }
 
         // Initialize
