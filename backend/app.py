@@ -337,17 +337,32 @@ def verify_token():
 def get_device_status():
     """Get current device status and sensor data"""
     try:
-        current_state = fetch_latest_device_state()
-        return jsonify({
-            'success': True,
-            'device_id': THING_NAME,
-            'status': current_state.get('status', 'offline'),
-            'sensor_data': current_state.get('sensor_data', {}),
-            'relays': current_state.get('relays', {}),
-            'uptime_seconds': current_state.get('uptime_seconds', 0),
-            'wifi_rssi': current_state.get('wifi_rssi', 0),
-            'last_update': str(current_state.get('last_update')) if current_state.get('last_update') else None
-        })
+        # If simulated data is enabled, use it directly without fetching from external sources
+        if SIMULATED_DATA_ENABLED:
+            # Return current device_data which is being updated by simulated data loop
+            return jsonify({
+                'success': True,
+                'device_id': THING_NAME,
+                'status': device_data.get('status', 'online'),
+                'sensor_data': device_data.get('sensor_data', {}),
+                'relays': device_data.get('relays', {}),
+                'uptime_seconds': device_data.get('uptime_seconds', 0),
+                'wifi_rssi': device_data.get('wifi_rssi', 0),
+                'last_update': str(device_data.get('last_update')) if device_data.get('last_update') else None
+            })
+        else:
+            # Only fetch from external sources if simulated data is disabled
+            current_state = fetch_latest_device_state()
+            return jsonify({
+                'success': True,
+                'device_id': THING_NAME,
+                'status': current_state.get('status', 'offline'),
+                'sensor_data': current_state.get('sensor_data', {}),
+                'relays': current_state.get('relays', {}),
+                'uptime_seconds': current_state.get('uptime_seconds', 0),
+                'wifi_rssi': current_state.get('wifi_rssi', 0),
+                'last_update': str(current_state.get('last_update')) if current_state.get('last_update') else None
+            })
     except Exception as e:
         print(f"Error in get_device_status: {e}")
         import traceback
@@ -880,32 +895,13 @@ def start_simulated_data_feed():
         """Background thread to continuously update simulated data"""
         while True:
             try:
-                # Check if we have real data from DynamoDB or Shadow
-                fetch_latest_device_state()
-                
-                # Only generate simulated data if no real data exists
-                if not device_data.get('sensor_data') or not device_data['sensor_data'].get('temperature'):
-                    generate_simulated_data()
-                elif device_data.get('last_update'):
-                    # Check if data is stale (older than 60 seconds)
-                    try:
-                        last_update = device_data['last_update']
-                        if isinstance(last_update, str):
-                            last_update = datetime.fromisoformat(last_update.replace('Z', '+00:00'))
-                            if last_update.tzinfo is not None:
-                                last_update = last_update.replace(tzinfo=None)
-                        elif hasattr(last_update, 'tzinfo') and last_update.tzinfo is not None:
-                            last_update = last_update.replace(tzinfo=None)
-                        
-                        time_diff = (datetime.utcnow() - last_update).total_seconds()
-                        if time_diff > 60:  # Data is stale, use simulated
-                            generate_simulated_data()
-                    except Exception:
-                        generate_simulated_data()
-                else:
-                    generate_simulated_data()
+                # When simulated data is enabled, always generate it
+                # Don't check for real data first - simulated data takes precedence
+                generate_simulated_data()
             except Exception as e:
                 print(f"Error in simulated data loop: {e}")
+                import traceback
+                traceback.print_exc()
             
             time.sleep(5)  # Update every 5 seconds
     
