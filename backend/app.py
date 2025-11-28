@@ -119,7 +119,14 @@ def fetch_latest_device_state():
             
             if 'sensor_data' in item:
                 if isinstance(item['sensor_data'], dict):
-                    device_data['sensor_data'] = item['sensor_data']
+                    # Convert Decimal values to float for JSON serialization
+                    sensor_data = {}
+                    for key, value in item['sensor_data'].items():
+                        if hasattr(value, 'to_eng_string'):  # Decimal type
+                            sensor_data[key] = float(value)
+                        else:
+                            sensor_data[key] = value
+                    device_data['sensor_data'] = sensor_data
                 else:
                     device_data['sensor_data'] = json.loads(item['sensor_data'])
             
@@ -875,8 +882,9 @@ def start_simulated_data_feed():
             device_data['last_update'] = datetime.utcnow()
         else:
             # Update existing data with small variations
-            current_temp = device_data['sensor_data'].get('temperature', 25.0)
-            current_humidity = device_data['sensor_data'].get('humidity', 50.0)
+            # Convert to float in case it's a Decimal from DynamoDB
+            current_temp = float(device_data['sensor_data'].get('temperature', 25.0))
+            current_humidity = float(device_data['sensor_data'].get('humidity', 50.0))
             
             device_data['sensor_data']['temperature'] = round(
                 max(20.0, min(30.0, current_temp + random.uniform(-0.5, 0.5))), 2
