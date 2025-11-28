@@ -346,13 +346,44 @@ def get_device_status():
     try:
         # If simulated data is enabled, use it directly without fetching from external sources
         if SIMULATED_DATA_ENABLED:
-            # Return current device_data which is being updated by simulated data loop
+            # Get current device_data
+            sensor_data = device_data.get('sensor_data', {}).copy()
+            relays = device_data.get('relays', {}).copy()
+            
+            # Normalize sensor_data format for frontend
+            # Convert 'motion' to 'motion_detected' if needed
+            if 'motion' in sensor_data and 'motion_detected' not in sensor_data:
+                sensor_data['motion_detected'] = bool(sensor_data.pop('motion'))
+            
+            # Normalize relay format: convert "relay1"/"on" to "relay_1"/True
+            normalized_relays = {}
+            for key, value in relays.items():
+                # Handle different relay key formats
+                if key.startswith('relay') and not key.startswith('relay_'):
+                    # Convert "relay1" -> "relay_1"
+                    relay_num = key.replace('relay', '')
+                    new_key = f'relay_{relay_num}'
+                else:
+                    new_key = key
+                
+                # Convert string values to boolean
+                if isinstance(value, str):
+                    normalized_relays[new_key] = value.lower() in ['on', 'true', '1']
+                else:
+                    normalized_relays[new_key] = bool(value)
+            
+            # Ensure all 4 relays exist
+            for i in range(1, 5):
+                relay_key = f'relay_{i}'
+                if relay_key not in normalized_relays:
+                    normalized_relays[relay_key] = False
+            
             return jsonify({
                 'success': True,
                 'device_id': THING_NAME,
                 'status': device_data.get('status', 'online'),
-                'sensor_data': device_data.get('sensor_data', {}),
-                'relays': device_data.get('relays', {}),
+                'sensor_data': sensor_data,
+                'relays': normalized_relays,
                 'uptime_seconds': device_data.get('uptime_seconds', 0),
                 'wifi_rssi': device_data.get('wifi_rssi', 0),
                 'last_update': str(device_data.get('last_update')) if device_data.get('last_update') else None
@@ -360,12 +391,37 @@ def get_device_status():
         else:
             # Only fetch from external sources if simulated data is disabled
             current_state = fetch_latest_device_state()
+            sensor_data = current_state.get('sensor_data', {}).copy()
+            relays = current_state.get('relays', {}).copy()
+            
+            # Normalize formats
+            if 'motion' in sensor_data and 'motion_detected' not in sensor_data:
+                sensor_data['motion_detected'] = bool(sensor_data.pop('motion'))
+            
+            normalized_relays = {}
+            for key, value in relays.items():
+                if key.startswith('relay') and not key.startswith('relay_'):
+                    relay_num = key.replace('relay', '')
+                    new_key = f'relay_{relay_num}'
+                else:
+                    new_key = key
+                
+                if isinstance(value, str):
+                    normalized_relays[new_key] = value.lower() in ['on', 'true', '1']
+                else:
+                    normalized_relays[new_key] = bool(value)
+            
+            for i in range(1, 5):
+                relay_key = f'relay_{i}'
+                if relay_key not in normalized_relays:
+                    normalized_relays[relay_key] = False
+            
             return jsonify({
                 'success': True,
                 'device_id': THING_NAME,
                 'status': current_state.get('status', 'offline'),
-                'sensor_data': current_state.get('sensor_data', {}),
-                'relays': current_state.get('relays', {}),
+                'sensor_data': sensor_data,
+                'relays': normalized_relays,
                 'uptime_seconds': current_state.get('uptime_seconds', 0),
                 'wifi_rssi': current_state.get('wifi_rssi', 0),
                 'last_update': str(current_state.get('last_update')) if current_state.get('last_update') else None
