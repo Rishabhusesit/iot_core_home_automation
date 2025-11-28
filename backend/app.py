@@ -1008,6 +1008,10 @@ threading.Thread(target=update_device_data, daemon=True).start()
 # Check if simulated data should be enabled
 SIMULATED_DATA_ENABLED = os.getenv('ENABLE_SIMULATED_DATA', 'true').lower() == 'true'
 
+# Start simulated data feed if enabled (start immediately, not just in __main__)
+if SIMULATED_DATA_ENABLED:
+    start_simulated_data_feed()
+
 if __name__ == '__main__':
     print("=" * 60)
     print("ESP32 IoT Backend API Server")
@@ -1020,10 +1024,6 @@ if __name__ == '__main__':
     print("\nStarting server on http://localhost:5000")
     print("Dashboard: http://localhost:5000")
     print("\nPress Ctrl+C to stop\n")
-    
-    # Start simulated data feed if enabled
-    if SIMULATED_DATA_ENABLED:
-        start_simulated_data_feed()
     
     app.run(host='0.0.0.0', port=5000, debug=True)
 
