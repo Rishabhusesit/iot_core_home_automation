@@ -53,11 +53,11 @@
             inset: -20px;
             background-image: url('assets/future_mixtape_pluto.webp');
             background-size: cover;
-            background-position: center;
+            background-position: center top;
             background-repeat: no-repeat;
-            opacity: 0.7;
-            filter: saturate(1.2) contrast(1.1);
-            transform: scale(1.02);
+            opacity: 0.9;
+            filter: saturate(1.25) contrast(1.15);
+            transform: scale(1.03);
             z-index: 0;
         }
 
@@ -65,12 +65,12 @@
             content: '';
             position: fixed;
             inset: 0;
-            background: linear-gradient(180deg, rgba(5, 0, 15, 0.85) 0%, rgba(30, 0, 40, 0.85) 60%, rgba(10, 0, 20, 0.9) 100%),
-                        radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.1), transparent 40%),
-                        radial-gradient(circle at 80% 80%, rgba(101, 242, 255, 0.2), transparent 55%);
+            background: linear-gradient(180deg, rgba(5, 0, 15, 0.45) 0%, rgba(20, 0, 30, 0.5) 50%, rgba(5, 0, 15, 0.55) 100%),
+                        radial-gradient(circle at 20% 20%, rgba(255, 255, 255, 0.05), transparent 40%),
+                        radial-gradient(circle at 80% 80%, rgba(101, 242, 255, 0.1), transparent 55%);
             z-index: 0;
             pointer-events: none;
-            mix-blend-mode: multiply;
+            mix-blend-mode: screen;
         }
 
         .container {
@@ -81,7 +81,7 @@
         }
 
         .header {
-            background: linear-gradient(120deg, rgba(28, 1, 55, 0.78), rgba(87, 0, 132, 0.6));
+            background: linear-gradient(120deg, rgba(28, 1, 55, 0.6), rgba(87, 0, 132, 0.45));
             backdrop-filter: blur(30px);
             -webkit-backdrop-filter: blur(30px);
             padding: 32px;
@@ -199,7 +199,7 @@
         }
 
         .card {
-            background: linear-gradient(165deg, rgba(15, 0, 32, 0.65), rgba(70, 0, 110, 0.6));
+            background: linear-gradient(165deg, rgba(15, 0, 32, 0.55), rgba(70, 0, 110, 0.48));
             backdrop-filter: blur(28px);
             -webkit-backdrop-filter: blur(28px);
             padding: 32px;
