@@ -929,6 +929,8 @@
             }
         };
 
+        let latestStatus = null; // cache latest device status for voice intents
+
         const tempChart = new Chart(document.getElementById('tempChart'), {
             type: 'line',
             data: {
@@ -998,6 +1000,7 @@
                 }
                 
                 const data = await response.json();
+                latestStatus = data;
 
                 // Update sensor values
                 if (data.sensor_data) {
@@ -1310,18 +1313,185 @@
             document.getElementById('voiceIcon').textContent = '🎤';
         }
 
+        // --- Fuzzy helpers for local voice intents ---
+        function normalizeCommand(text) {
+            return text
+                .toLowerCase()
+                .replace(/[^a-z0-9 ]/g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+        }
+
+        function levenshtein(a, b) {
+            const matrix = [];
+            const alen = a.length;
+            const blen = b.length;
+            for (let i = 0; i <= alen; i++) matrix[i] = [i];
+            for (let j = 0; j <= blen; j++) matrix[0][j] = j;
+            for (let i = 1; i <= alen; i++) {
+                for (let j = 1; j <= blen; j++) {
+                    if (a[i - 1] === b[j - 1]) {
+                        matrix[i][j] = matrix[i - 1][j - 1];
+                    } else {
+                        matrix[i][j] = Math.min(
+                            matrix[i - 1][j] + 1,
+                            matrix[i][j - 1] + 1,
+                            matrix[i - 1][j - 1] + 1
+                        );
+                    }
+                }
+            }
+            return matrix[alen][blen];
+        }
+
+        function similarity(a, b) {
+            if (!a || !b) return 0;
+            const dist = levenshtein(a, b);
+            const maxLen = Math.max(a.length, b.length);
+            return maxLen === 0 ? 1 : 1 - dist / maxLen;
+        }
+
+        async function setRelayState(relayNum, state) {
+            try {
+                const response = await fetch(`${API_URL}/device/relay`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ relay: relayNum, state })
+                });
+                const data = await response.json();
+                if (data.success === false) {
+                    throw new Error(data.error || 'Relay control failed');
+                }
+                // update UI switch
+                const checkbox = document.getElementById(`relay${relayNum}`);
+                if (checkbox) checkbox.checked = !!state;
+                addLog(`Relay ${relayNum} turned ${state ? 'ON' : 'OFF'} via voice`, 'success');
+            } catch (error) {
+                addLog(`Voice relay control error: ${error.message}`, 'error');
+                throw error;
+            }
+        }
+
+        async function handleLocalVoiceIntent(command) {
+            const norm = normalizeCommand(command);
+            const responseDiv = document.getElementById('voiceResponse');
+
+            // If we don't have latest status yet, skip local intents
+            const intents = [];
+
+            // Relay control intents
+            for (let i = 1; i <= 4; i++) {
+                intents.push({
+                    phrase: `turn on relay ${i}`,
+                    action: async () => {
+                        await setRelayState(i, true);
+                        const msg = `Turning on relay ${i}.`;
+                        responseDiv.innerHTML = `<strong>Done:</strong> ${msg}`;
+                        speakText(msg);
+                        setTimeout(updateDashboard, 800);
+                    }
+                });
+                intents.push({
+                    phrase: `turn off relay ${i}`,
+                    action: async () => {
+                        await setRelayState(i, false);
+                        const msg = `Turning off relay ${i}.`;
+                        responseDiv.innerHTML = `<strong>Done:</strong> ${msg}`;
+                        speakText(msg);
+                        setTimeout(updateDashboard, 800);
+                    }
+                });
+            }
+
+            // All lights
+            intents.push({
+                phrase: 'turn on all lights',
+                action: async () => {
+                    for (let i = 1; i <= 4; i++) await setRelayState(i, true);
+                    const msg = 'Turning on all relays.';
+                    responseDiv.innerHTML = `<strong>Done:</strong> ${msg}`;
+                    speakText(msg);
+                    setTimeout(updateDashboard, 800);
+                }
+            });
+            intents.push({
+                phrase: 'turn off all lights',
+                action: async () => {
+                    for (let i = 1; i <= 4; i++) await setRelayState(i, false);
+                    const msg = 'Turning off all relays.';
+                    responseDiv.innerHTML = `<strong>Done:</strong> ${msg}`;
+                    speakText(msg);
+                    setTimeout(updateDashboard, 800);
+                }
+            });
+
+            // Simple sensor queries using latestStatus
+            if (latestStatus && latestStatus.sensor_data) {
+                intents.push({
+                    phrase: 'what is the temperature',
+                    action: () => {
+                        const t = latestStatus.sensor_data.temperature;
+                        const msg = `Temperature is ${Number(t).toFixed(1)} degrees Celsius.`;
+                        responseDiv.innerHTML = `<strong>Answer:</strong> ${msg}`;
+                        speakText(msg);
+                    }
+                });
+                intents.push({
+                    phrase: 'what is the humidity',
+                    action: () => {
+                        const h = latestStatus.sensor_data.humidity;
+                        const msg = `Humidity is ${Number(h).toFixed(1)} percent.`;
+                        responseDiv.innerHTML = `<strong>Answer:</strong> ${msg}`;
+                        speakText(msg);
+                    }
+                });
+            }
+
+            let bestIntent = null;
+            let bestScore = 0;
+            for (const intent of intents) {
+                const score = similarity(norm, normalizeCommand(intent.phrase));
+                if (score > bestScore) {
+                    bestScore = score;
+                    bestIntent = intent;
+                }
+            }
+
+            // Threshold ~0.7 for fuzzy match
+            if (bestIntent && bestScore >= 0.7) {
+                addLog(`Matched intent "${bestIntent.phrase}" with score ${bestScore.toFixed(2)}`, 'info');
+                await bestIntent.action();
+                return true;
+            }
+
+            return false;
+        }
+
         async function processVoiceCommand(command) {
             if (!command) return;
 
             const responseDiv = document.getElementById('voiceResponse');
             responseDiv.innerHTML = '<em>Processing your command...</em>';
-            addLog(`Voice command: "${command}"`, 'info');
+            addLog(`Voice command: \"${command}\"`, 'info');
+
+            // First try fast local intents (relays, simple queries) with fuzzy match
+            try {
+                const handledLocally = await handleLocalVoiceIntent(command);
+                if (handledLocally) {
+                    return;
+                }
+            } catch (e) {
+                console.error('Local intent handling failed, falling back to AI:', e);
+            }
+
+            // Fallback to backend AI, but ask for short, direct answers
+            const shortCommand = `Answer briefly in 1-2 sentences. If it is a control command, just confirm the action in one short line.\nUser: ${command}`;
 
             try {
                 const response = await fetch(`${API_URL}/ai/query`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: command })
+                    body: JSON.stringify({ query: shortCommand })
                 });
 
                 if (!response.ok) {
@@ -1331,14 +1501,16 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    const aiResponse = data.response || data.answer || 'Command processed successfully';
+                    let aiResponse = data.response || data.answer || 'Done.';
+                    // Keep it concise in UI too
+                    if (aiResponse.length > 220) {
+                        aiResponse = aiResponse.slice(0, 220) + '...';
+                    }
                     responseDiv.innerHTML = `<strong>AI Response:</strong><br>${aiResponse}`;
-                    addLog(`Voice command processed: ${aiResponse.substring(0, 50)}...`, 'success');
+                    addLog(`Voice command processed (short): ${aiResponse.substring(0, 80)}...`, 'success');
                     
-                    // Speak the response
                     speakText(aiResponse);
 
-                    // If it was a control command, refresh device status
                     if (command.toLowerCase().includes('turn') || command.toLowerCase().includes('control') || command.toLowerCase().includes('relay')) {
                         setTimeout(updateDashboard, 1000);
                     }
