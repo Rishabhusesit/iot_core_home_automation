@@ -1246,23 +1246,23 @@
 
         // Voice Assistant
         let recognition = null;
-        let isListening = false;
+        let isListening = false;   // global "hands‑free" mode toggle
         let synth = window.speechSynthesis;
 
         // Initialize Web Speech API
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             recognition = new SpeechRecognition();
-            recognition.continuous = false;
+            // Hands‑free: keep recognition running and restart on end
+            recognition.continuous = true;
             recognition.interimResults = true;
             recognition.lang = 'en-US';
 
             recognition.onstart = () => {
-                isListening = true;
                 document.getElementById('voiceBtn').classList.add('listening');
-                document.getElementById('voiceStatus').textContent = 'Listening...';
-                document.getElementById('voiceIcon').textContent = '🔴';
-                addLog('Voice recognition started', 'success');
+                document.getElementById('voiceStatus').textContent = 'Say \"5 ...\" to give a command';
+                document.getElementById('voiceIcon').textContent = '🎙️';
+                addLog('Voice recognition active (wake word: "5")', 'success');
             };
 
             recognition.onresult = (event) => {
@@ -1271,10 +1271,32 @@
                     transcript += event.results[i][0].transcript;
                 }
                 document.getElementById('voiceTranscript').innerHTML = `<strong>You said:</strong> ${transcript}`;
-                
-                // If final result, process the query
+
+                // If final result, check for wake‑word and process the command
                 if (event.results[event.results.length - 1].isFinal) {
-                    processVoiceCommand(transcript.trim());
+                    const raw = transcript.trim();
+                    const norm = normalizeCommand(raw);
+
+                    // Wake‑word variants: "5", "five", "5ive", "5star", "five star"
+                    const wakeWords = ['5', 'five', '5ive', '5star', 'five star'];
+                    let commandText = null;
+                    for (const wake of wakeWords) {
+                        if (norm === wake) {
+                            // Only wake word, no command – ignore
+                            commandText = null;
+                            break;
+                        }
+                        if (norm.startsWith(wake + ' ')) {
+                            commandText = raw.substring(raw.toLowerCase().indexOf(' ') + 1).trim();
+                            break;
+                        }
+                    }
+
+                    if (commandText) {
+                        processVoiceCommand(commandText);
+                    } else {
+                        addLog('Heard speech without wake word, ignoring.', 'info');
+                    }
                 }
             };
 
@@ -1286,7 +1308,17 @@
             };
 
             recognition.onend = () => {
-                stopListening();
+                // In hands‑free mode, automatically restart listening
+                if (isListening) {
+                    try {
+                        recognition.start();
+                    } catch (e) {
+                        console.warn('Failed to restart recognition:', e);
+                        stopListening();
+                    }
+                } else {
+                    stopListening();
+                }
             };
         } else {
             document.getElementById('voiceStatus').textContent = 'Not Supported';
@@ -1299,15 +1331,22 @@
                 return;
             }
 
+            // Toggle global hands‑free mode
+            isListening = !isListening;
+
             if (isListening) {
-                recognition.stop();
+                try {
+                    recognition.start();
+                } catch (e) {
+                    console.error('Failed to start recognition:', e);
+                    isListening = false;
+                }
             } else {
-                recognition.start();
+                recognition.stop();
             }
         }
 
         function stopListening() {
-            isListening = false;
             document.getElementById('voiceBtn').classList.remove('listening');
             document.getElementById('voiceStatus').textContent = 'Click to Start';
             document.getElementById('voiceIcon').textContent = '🎤';
@@ -1469,6 +1508,11 @@
 
         async function processVoiceCommand(command) {
             if (!command) return;
+
+            // If assistant is talking and you start speaking again, cut it off
+            if (synth && synth.speaking) {
+                synth.cancel();
+            }
 
             const responseDiv = document.getElementById('voiceResponse');
             responseDiv.innerHTML = '<em>Processing your command...</em>';
