@@ -669,6 +669,18 @@ def trigger_ai_analysis():
                 'hint': 'Check AWS credentials and Bedrock model access'
             }), 500
         
+        # Store the insight
+        from datetime import datetime
+        insight = {
+            'timestamp': datetime.utcnow().isoformat(),
+            'analysis': completion,
+            'sensor_data': sensor_data.copy()
+        }
+        ai_insights.insert(0, insight)  # Add to beginning
+        # Keep only last 10 insights
+        if len(ai_insights) > 10:
+            ai_insights.pop()
+        
         return jsonify({
             'success': True,
             'message': 'AI analysis triggered successfully',

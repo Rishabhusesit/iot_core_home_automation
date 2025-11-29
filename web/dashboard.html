@@ -1259,10 +1259,11 @@
             recognition.lang = 'en-US';
 
             recognition.onstart = () => {
+                isListening = true;
                 document.getElementById('voiceBtn').classList.add('listening');
-                document.getElementById('voiceStatus').textContent = 'Say \"5 ...\" to give a command';
+                document.getElementById('voiceStatus').textContent = 'Listening... Say "5" + command';
                 document.getElementById('voiceIcon').textContent = '🎙️';
-                addLog('Voice recognition active (wake word: "5")', 'success');
+                addLog('Voice recognition active. Say "5" followed by your command.', 'success');
             };
 
             recognition.onresult = (event) => {
@@ -1278,32 +1279,43 @@
 
                 // If final result, check for wake‑word and process the command
                 if (event.results[event.results.length - 1].isFinal) {
-                    const raw = transcript.trim().toLowerCase();
+                    const raw = transcript.trim();
+                    const lower = raw.toLowerCase();
                     
                     // Wake‑word detection: "5", "five", "5ive", "5star", "five star"
+                    // Also handle variations like "five" being transcribed as "5" or vice versa
                     const wakePatterns = [
-                        /^5\s+(.+)$/i,           // "5 turn on lights"
-                        /^five\s+(.+)$/i,        // "five turn on lights"
-                        /^5ive\s+(.+)$/i,        // "5ive turn on lights"
-                        /^5star\s+(.+)$/i,       // "5star turn on lights"
-                        /^five\s+star\s+(.+)$/i  // "five star turn on lights"
+                        /^(5|five)\s+(.+)$/i,           // "5 turn on lights" or "five turn on lights"
+                        /^(5ive|5 star|five star)\s+(.+)$/i,  // "5ive turn on lights" etc
                     ];
                     
                     let commandText = null;
                     for (const pattern of wakePatterns) {
-                        const match = raw.match(pattern);
-                        if (match && match[1]) {
-                            commandText = match[1].trim();
+                        const match = lower.match(pattern);
+                        if (match && match[2]) {
+                            // Extract command after wake word
+                            const wakeWordEnd = raw.toLowerCase().indexOf(match[1]) + match[1].length;
+                            commandText = raw.substring(wakeWordEnd).trim();
                             break;
                         }
                     }
+                    
+                    // Also check if it starts with just "5" or "five" followed by space
+                    if (!commandText) {
+                        if (lower.startsWith('5 ') || lower.startsWith('five ')) {
+                            commandText = raw.substring(raw.toLowerCase().indexOf(' ') + 1).trim();
+                        }
+                    }
 
-                    if (commandText) {
+                    if (commandText && commandText.length > 0) {
                         addLog(`Wake word detected. Command: "${commandText}"`, 'info');
                         processVoiceCommand(commandText);
-                    } else if (raw && !raw.match(/^(5|five|5ive|5star|five star)$/i)) {
-                        // Ignore if it's just the wake word alone, or if no wake word
-                        addLog('No wake word detected, ignoring.', 'info');
+                    } else if (lower.match(/^(5|five|5ive|5star|five star)$/)) {
+                        // Just wake word, wait for command
+                        addLog('Wake word heard, waiting for command...', 'info');
+                    } else if (raw.length > 0) {
+                        // No wake word detected
+                        addLog(`No wake word detected in: "${raw}". Say "5" first.`, 'info');
                     }
                 }
             };
@@ -1353,22 +1365,19 @@
         function autoStartVoiceAssistant() {
             if (!recognition) return;
             
-            // Request microphone permission and start listening
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(() => {
-                    isListening = true;
-                    try {
-                        recognition.start();
-                        addLog('Voice assistant auto-started. Say "5" followed by your command.', 'success');
-                    } catch (e) {
-                        console.warn('Recognition already started or error:', e);
-                    }
-                })
-                .catch((err) => {
-                    console.warn('Microphone permission denied or error:', err);
-                    document.getElementById('voiceStatus').textContent = 'Click to enable microphone';
-                    addLog('Microphone access needed. Click the button to enable.', 'info');
-                });
+            if (isListening) return; // Already listening
+            
+            isListening = true;
+            try {
+                recognition.start();
+                addLog('Voice assistant started. Say "5" followed by your command.', 'success');
+            } catch (e) {
+                console.warn('Recognition start error:', e);
+                isListening = false;
+                // If it fails, user needs to click button (browser requires user interaction for mic)
+                document.getElementById('voiceStatus').textContent = 'Click to Start';
+                addLog('Click microphone button to start (browser requires user interaction)', 'info');
+            }
         }
 
         function stopListening() {
@@ -1630,13 +1639,6 @@
         updateAIInsights();
         setInterval(updateDashboard, 5000);
         setInterval(updateAIInsights, 30000);
-        
-        // Auto-start voice assistant after a short delay (allows page to load)
-        setTimeout(() => {
-            if (recognition) {
-                autoStartVoiceAssistant();
-            }
-        }, 1000);
     </script>
 </body>
 </html>
