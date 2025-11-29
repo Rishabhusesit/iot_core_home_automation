@@ -1270,32 +1270,40 @@
                 for (let i = event.resultIndex; i < event.results.length; i++) {
                     transcript += event.results[i][0].transcript;
                 }
-                document.getElementById('voiceTranscript').innerHTML = `<strong>You said:</strong> ${transcript}`;
+                
+                // Show interim results
+                if (transcript) {
+                    document.getElementById('voiceTranscript').innerHTML = `<strong>You said:</strong> ${transcript}`;
+                }
 
                 // If final result, check for wake‑word and process the command
                 if (event.results[event.results.length - 1].isFinal) {
-                    const raw = transcript.trim();
-                    const norm = normalizeCommand(raw);
-
-                    // Wake‑word variants: "5", "five", "5ive", "5star", "five star"
-                    const wakeWords = ['5', 'five', '5ive', '5star', 'five star'];
+                    const raw = transcript.trim().toLowerCase();
+                    
+                    // Wake‑word detection: "5", "five", "5ive", "5star", "five star"
+                    const wakePatterns = [
+                        /^5\s+(.+)$/i,           // "5 turn on lights"
+                        /^five\s+(.+)$/i,        // "five turn on lights"
+                        /^5ive\s+(.+)$/i,        // "5ive turn on lights"
+                        /^5star\s+(.+)$/i,       // "5star turn on lights"
+                        /^five\s+star\s+(.+)$/i  // "five star turn on lights"
+                    ];
+                    
                     let commandText = null;
-                    for (const wake of wakeWords) {
-                        if (norm === wake) {
-                            // Only wake word, no command – ignore
-                            commandText = null;
-                            break;
-                        }
-                        if (norm.startsWith(wake + ' ')) {
-                            commandText = raw.substring(raw.toLowerCase().indexOf(' ') + 1).trim();
+                    for (const pattern of wakePatterns) {
+                        const match = raw.match(pattern);
+                        if (match && match[1]) {
+                            commandText = match[1].trim();
                             break;
                         }
                     }
 
                     if (commandText) {
+                        addLog(`Wake word detected. Command: "${commandText}"`, 'info');
                         processVoiceCommand(commandText);
-                    } else {
-                        addLog('Heard speech without wake word, ignoring.', 'info');
+                    } else if (raw && !raw.match(/^(5|five|5ive|5star|five star)$/i)) {
+                        // Ignore if it's just the wake word alone, or if no wake word
+                        addLog('No wake word detected, ignoring.', 'info');
                     }
                 }
             };
@@ -1331,19 +1339,36 @@
                 return;
             }
 
-            // Toggle global hands‑free mode
-            isListening = !isListening;
-
-            if (isListening) {
-                try {
-                    recognition.start();
-                } catch (e) {
-                    console.error('Failed to start recognition:', e);
-                    isListening = false;
-                }
+            // If not listening, request permission and start
+            if (!isListening) {
+                autoStartVoiceAssistant();
             } else {
+                // Stop listening
+                isListening = false;
                 recognition.stop();
             }
+        }
+
+        // Auto-start voice recognition when page loads (after user interaction)
+        function autoStartVoiceAssistant() {
+            if (!recognition) return;
+            
+            // Request microphone permission and start listening
+            navigator.mediaDevices.getUserMedia({ audio: true })
+                .then(() => {
+                    isListening = true;
+                    try {
+                        recognition.start();
+                        addLog('Voice assistant auto-started. Say "5" followed by your command.', 'success');
+                    } catch (e) {
+                        console.warn('Recognition already started or error:', e);
+                    }
+                })
+                .catch((err) => {
+                    console.warn('Microphone permission denied or error:', err);
+                    document.getElementById('voiceStatus').textContent = 'Click to enable microphone';
+                    addLog('Microphone access needed. Click the button to enable.', 'info');
+                });
         }
 
         function stopListening() {
@@ -1507,16 +1532,17 @@
         }
 
         async function processVoiceCommand(command) {
-            if (!command) return;
+            if (!command || !command.trim()) return;
 
             // If assistant is talking and you start speaking again, cut it off
             if (synth && synth.speaking) {
                 synth.cancel();
+                addLog('Interrupted previous response', 'info');
             }
 
             const responseDiv = document.getElementById('voiceResponse');
-            responseDiv.innerHTML = '<em>Processing your command...</em>';
-            addLog(`Voice command: \"${command}\"`, 'info');
+            responseDiv.innerHTML = '<em>Processing...</em>';
+            addLog(`Voice command: "${command}"`, 'info');
 
             // First try fast local intents (relays, simple queries) with fuzzy match
             try {
@@ -1545,24 +1571,27 @@
                 const data = await response.json();
 
                 if (data.success) {
-                    let aiResponse = data.response || data.answer || 'Done.';
+                    let aiResponse = data.response || data.answer || 'Command processed.';
                     // Keep it concise in UI too
                     if (aiResponse.length > 220) {
                         aiResponse = aiResponse.slice(0, 220) + '...';
                     }
-                    responseDiv.innerHTML = `<strong>AI Response:</strong><br>${aiResponse}`;
-                    addLog(`Voice command processed (short): ${aiResponse.substring(0, 80)}...`, 'success');
+                    responseDiv.innerHTML = `<strong>Response:</strong><br>${aiResponse}`;
+                    addLog(`Voice command processed: ${aiResponse.substring(0, 80)}...`, 'success');
                     
+                    // Always speak the response
                     speakText(aiResponse);
 
-                    if (command.toLowerCase().includes('turn') || command.toLowerCase().includes('control') || command.toLowerCase().includes('relay')) {
+                    // Refresh dashboard if it was a control command
+                    if (command.toLowerCase().includes('turn') || command.toLowerCase().includes('control') || command.toLowerCase().includes('relay') || command.toLowerCase().includes('light')) {
                         setTimeout(updateDashboard, 1000);
                     }
                 } else {
                     const errorMsg = data.error || 'Unknown error';
-                    responseDiv.innerHTML = `<strong>Error:</strong> ${errorMsg}`;
+                    const errorResponse = `Sorry, ${errorMsg}`;
+                    responseDiv.innerHTML = `<strong>Error:</strong><br>${errorResponse}`;
                     addLog(`Voice command failed: ${errorMsg}`, 'error');
-                    speakText('Sorry, I encountered an error processing your command.');
+                    speakText(errorResponse);
                 }
             } catch (error) {
                 console.error('Error processing voice command:', error);
@@ -1601,6 +1630,13 @@
         updateAIInsights();
         setInterval(updateDashboard, 5000);
         setInterval(updateAIInsights, 30000);
+        
+        // Auto-start voice assistant after a short delay (allows page to load)
+        setTimeout(() => {
+            if (recognition) {
+                autoStartVoiceAssistant();
+            }
+        }, 1000);
     </script>
 </body>
 </html>
