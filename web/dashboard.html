@@ -1494,13 +1494,82 @@
             }
         }
 
-        // --- Fuzzy helpers for local voice intents ---
+        // --- Enhanced Fuzzy helpers for local voice intents ---
         function normalizeCommand(text) {
-            return text
+            let normalized = text
                 .toLowerCase()
                 .replace(/[^a-z0-9 ]/g, ' ')
                 .replace(/\s+/g, ' ')
                 .trim();
+            
+            // Fix common speech-to-text errors
+            const corrections = {
+                'relevan': 'relay',
+                'relev': 'relay',
+                'relay one': 'relay 1',
+                'relay two': 'relay 2',
+                'relay three': 'relay 3',
+                'relay four': 'relay 4',
+                'relay won': 'relay 1',
+                'relay to': 'relay 2',
+                'relay tree': 'relay 3',
+                'relay for': 'relay 4',
+                'light one': 'relay 1',
+                'light two': 'relay 2',
+                'light three': 'relay 3',
+                'light four': 'relay 4',
+                'light won': 'relay 1',
+                'light to': 'relay 2',
+                'light tree': 'relay 3',
+                'light for': 'relay 4',
+                'switch one': 'relay 1',
+                'switch two': 'relay 2',
+                'switch three': 'relay 3',
+                'switch four': 'relay 4',
+                'ten': '10',
+                'eleven': '11',
+                'twelve': '12',
+                'thirteen': '13',
+                'fourteen': '14',
+                'fifteen': '15',
+                'sixteen': '16',
+                'seventeen': '17',
+                'eighteen': '18',
+                'nineteen': '19',
+                'twenty': '20',
+                'temp': 'temperature',
+                'humid': 'humidity',
+                'whats': 'what is',
+                'what\'s': 'what is',
+                'turnon': 'turn on',
+                'turnoff': 'turn off',
+                'switchon': 'turn on',
+                'switchoff': 'turn off',
+                'switch on': 'turn on',
+                'switch off': 'turn off',
+                'lights': 'lights',
+                'all lights': 'all lights',
+                'all the lights': 'all lights',
+                'every light': 'all lights',
+                'all relays': 'all lights'
+            };
+            
+            // Apply corrections
+            for (const [wrong, correct] of Object.entries(corrections)) {
+                normalized = normalized.replace(new RegExp(`\\b${wrong}\\b`, 'gi'), correct);
+            }
+            
+            // Extract numbers from text (handle "10 on 11" -> "1 on 1" -> "relay 1")
+            normalized = normalized.replace(/\b(10|11|12|13|14|15|16|17|18|19|20)\b/g, (match) => {
+                const num = parseInt(match);
+                // If it's a number > 4, try to map it (10 -> 1, 11 -> 1, etc.)
+                if (num > 4 && num <= 20) {
+                    return String((num % 10) || 1); // 10->1, 11->1, 12->2, etc.
+                }
+                return match;
+            });
+            
+            return normalized;
         }
 
         function levenshtein(a, b) {
@@ -1527,9 +1596,46 @@
 
         function similarity(a, b) {
             if (!a || !b) return 0;
+            
+            // Exact match
+            if (a === b) return 1.0;
+            
+            // Check if one contains the other (partial match)
+            if (a.includes(b) || b.includes(a)) {
+                return 0.85;
+            }
+            
+            // Word-based similarity (better for commands)
+            const wordsA = a.split(/\s+/);
+            const wordsB = b.split(/\s+/);
+            let matchingWords = 0;
+            let totalWords = Math.max(wordsA.length, wordsB.length);
+            
+            for (const wordA of wordsA) {
+                for (const wordB of wordsB) {
+                    if (wordA === wordB) {
+                        matchingWords++;
+                        break;
+                    } else if (wordA.length > 2 && wordB.length > 2) {
+                        // Fuzzy word match
+                        const wordSim = 1 - (levenshtein(wordA, wordB) / Math.max(wordA.length, wordB.length));
+                        if (wordSim > 0.7) {
+                            matchingWords += wordSim;
+                            break;
+                        }
+                    }
+                }
+            }
+            
+            const wordScore = totalWords > 0 ? matchingWords / totalWords : 0;
+            
+            // Character-based similarity
             const dist = levenshtein(a, b);
             const maxLen = Math.max(a.length, b.length);
-            return maxLen === 0 ? 1 : 1 - dist / maxLen;
+            const charScore = maxLen === 0 ? 1 : 1 - dist / maxLen;
+            
+            // Combine both scores (weight word matching more)
+            return (wordScore * 0.6) + (charScore * 0.4);
         }
 
         async function setRelayState(relayNum, state) {
@@ -1553,6 +1659,32 @@
             }
         }
 
+        // Extract relay number from command using fuzzy matching
+        function extractRelayNumber(command) {
+            const norm = normalizeCommand(command);
+            // Try to find numbers 1-4 in the command
+            const numberPatterns = [
+                /\b(one|won|1)\b/i,
+                /\b(two|to|too|2)\b/i,
+                /\b(three|tree|3)\b/i,
+                /\b(four|for|fore|4)\b/i
+            ];
+            
+            for (let i = 0; i < numberPatterns.length; i++) {
+                if (numberPatterns[i].test(norm)) {
+                    return i + 1;
+                }
+            }
+            
+            // Also try direct number extraction
+            const numMatch = norm.match(/\b([1-4])\b/);
+            if (numMatch) {
+                return parseInt(numMatch[1]);
+            }
+            
+            return null;
+        }
+
         async function handleLocalVoiceIntent(command) {
             const norm = normalizeCommand(command);
             const responseDiv = document.getElementById('voiceResponse');
@@ -1560,28 +1692,97 @@
             // If we don't have latest status yet, skip local intents
             const intents = [];
 
-            // Relay control intents
+            // Relay control intents - expanded patterns
             for (let i = 1; i <= 4; i++) {
-                intents.push({
-                    phrase: `turn on relay ${i}`,
-                    action: async () => {
-                        await setRelayState(i, true);
-                        const msg = `Turning on relay ${i}.`;
-                        responseDiv.innerHTML = `<strong>Done:</strong> ${msg}`;
-                        speakText(msg);
-                        setTimeout(updateDashboard, 800);
-                    }
+                const numWords = ['one', 'two', 'three', 'four'];
+                const numWord = numWords[i - 1];
+                
+                // Turn on patterns
+                const turnOnPatterns = [
+                    `turn on relay ${i}`,
+                    `turn on relay ${numWord}`,
+                    `turn on light ${i}`,
+                    `turn on light ${numWord}`,
+                    `turn on switch ${i}`,
+                    `turn on switch ${numWord}`,
+                    `switch on relay ${i}`,
+                    `switch on light ${i}`,
+                    `enable relay ${i}`,
+                    `activate relay ${i}`,
+                    `relay ${i} on`,
+                    `light ${i} on`
+                ];
+                
+                // Turn off patterns
+                const turnOffPatterns = [
+                    `turn off relay ${i}`,
+                    `turn off relay ${numWord}`,
+                    `turn off light ${i}`,
+                    `turn off light ${numWord}`,
+                    `turn off switch ${i}`,
+                    `turn off switch ${numWord}`,
+                    `switch off relay ${i}`,
+                    `switch off light ${i}`,
+                    `disable relay ${i}`,
+                    `deactivate relay ${i}`,
+                    `relay ${i} off`,
+                    `light ${i} off`
+                ];
+                
+                turnOnPatterns.forEach(phrase => {
+                    intents.push({
+                        phrase: phrase,
+                        action: async () => {
+                            await setRelayState(i, true);
+                            const msg = `Turning on relay ${i}.`;
+                            responseDiv.innerHTML = `<strong>Done:</strong> ${msg}`;
+                            speakText(msg);
+                            setTimeout(updateDashboard, 800);
+                        }
+                    });
                 });
-                intents.push({
-                    phrase: `turn off relay ${i}`,
-                    action: async () => {
-                        await setRelayState(i, false);
-                        const msg = `Turning off relay ${i}.`;
-                        responseDiv.innerHTML = `<strong>Done:</strong> ${msg}`;
-                        speakText(msg);
-                        setTimeout(updateDashboard, 800);
-                    }
+                
+                turnOffPatterns.forEach(phrase => {
+                    intents.push({
+                        phrase: phrase,
+                        action: async () => {
+                            await setRelayState(i, false);
+                            const msg = `Turning off relay ${i}.`;
+                            responseDiv.innerHTML = `<strong>Done:</strong> ${msg}`;
+                            speakText(msg);
+                            setTimeout(updateDashboard, 800);
+                        }
+                    });
                 });
+            }
+            
+            // Try to extract relay number from command if no exact match
+            const extractedRelay = extractRelayNumber(command);
+            if (extractedRelay && extractedRelay >= 1 && extractedRelay <= 4) {
+                if (norm.includes('turn on') || norm.includes('switch on') || norm.includes('enable') || norm.includes('activate') || (norm.includes('on') && !norm.includes('off'))) {
+                    intents.push({
+                        phrase: `turn on relay ${extractedRelay} (extracted)`,
+                        action: async () => {
+                            await setRelayState(extractedRelay, true);
+                            const msg = `Turning on relay ${extractedRelay}.`;
+                            responseDiv.innerHTML = `<strong>Done:</strong> ${msg}`;
+                            speakText(msg);
+                            setTimeout(updateDashboard, 800);
+                        }
+                    });
+                }
+                if (norm.includes('turn off') || norm.includes('switch off') || norm.includes('disable') || norm.includes('deactivate') || (norm.includes('off') && !norm.includes('on'))) {
+                    intents.push({
+                        phrase: `turn off relay ${extractedRelay} (extracted)`,
+                        action: async () => {
+                            await setRelayState(extractedRelay, false);
+                            const msg = `Turning off relay ${extractedRelay}.`;
+                            responseDiv.innerHTML = `<strong>Done:</strong> ${msg}`;
+                            speakText(msg);
+                            setTimeout(updateDashboard, 800);
+                        }
+                    });
+                }
             }
 
             // All lights
@@ -1638,8 +1839,8 @@
                 }
             }
 
-            // Threshold ~0.7 for fuzzy match
-            if (bestIntent && bestScore >= 0.7) {
+            // Lower threshold for better matching (0.5 instead of 0.7)
+            if (bestIntent && bestScore >= 0.5) {
                 addLog(`Matched intent "${bestIntent.phrase}" with score ${bestScore.toFixed(2)}`, 'info');
                 await bestIntent.action();
                 return true;
@@ -1674,14 +1875,31 @@
                 console.error('Local intent handling failed, falling back to AI:', e);
             }
 
-            // Fallback to backend AI, but ask for short, direct answers
-            const shortCommand = `Answer briefly in 1-2 sentences. If it is a control command, just confirm the action in one short line.\nUser: ${command}`;
+            // Fallback to backend AI with enhanced context
+            const deviceContext = latestStatus ? `
+Current Device Status:
+- Temperature: ${latestStatus.sensor_data?.temperature || 'N/A'}°C
+- Humidity: ${latestStatus.sensor_data?.humidity || 'N/A'}%
+- Motion: ${latestStatus.sensor_data?.motion_detected ? 'Detected' : 'None'}
+- Relays: ${latestStatus.relays ? Object.entries(latestStatus.relays).map(([k, v]) => `${k.replace('relay_', 'R')}: ${v ? 'ON' : 'OFF'}`).join(', ') : 'Unknown'}
+` : '';
+
+            const enhancedQuery = `You are a smart home voice assistant. Answer briefly (1-2 sentences max). 
+
+Available Commands:
+- Control 4 relays/lights: "turn on/off relay 1/2/3/4" or "turn on/off light 1/2/3/4"
+- Control all: "turn on/off all lights"
+- Check sensors: "what is the temperature/humidity"
+${deviceContext}
+User said: "${command}"
+
+If the user wants to control a relay/light, interpret their command and respond with what you understood. If unclear, ask for clarification in one short sentence.`;
 
             try {
                 const response = await fetch(`${API_URL}/ai/query`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ query: shortCommand })
+                    body: JSON.stringify({ query: enhancedQuery })
                 });
 
                 if (!response.ok) {
