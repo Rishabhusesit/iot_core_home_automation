@@ -580,6 +580,13 @@
             z-index: 1;
         }
 
+        #voiceAssistantCard {
+            display: none;
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
         #voiceAssistantCard.show {
             display: block !important;
             opacity: 1 !important;
@@ -587,9 +594,9 @@
         }
 
         #voiceAssistantCard.hide {
+            display: none !important;
             opacity: 0;
             transform: translateY(20px);
-            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
         /* Subtle listening indicator when hidden */
@@ -906,8 +913,8 @@
             </div>
         </div>
 
-        <!-- Voice Agent Card -->
-        <div id="voiceAssistantCard" class="card ai-query-card" style="background: linear-gradient(135deg, rgba(255, 95, 162, 0.4) 0%, rgba(108, 0, 124, 0.5) 100%); display: none; opacity: 0; transform: translateY(20px); transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);">
+        <!-- Voice Agent Card - Hidden by default, appears when "five" is detected -->
+        <div id="voiceAssistantCard" class="card ai-query-card hide" style="background: linear-gradient(135deg, rgba(255, 95, 162, 0.4) 0%, rgba(108, 0, 124, 0.5) 100%);">
             <h2><span class="card-icon">🎤</span> Voice Assistant</h2>
             <div style="display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 20px 0;">
                 <button id="voiceBtn" class="voice-button" onclick="toggleVoiceAssistant()">
@@ -947,7 +954,7 @@
     </div>
 
     <!-- Floating Voice Listening Indicator -->
-    <div id="voiceListeningIndicator" class="voice-listening-indicator" onclick="showVoiceAssistant()" title="Voice Assistant Active - Click to show">
+    <div id="voiceListeningIndicator" class="voice-listening-indicator" onclick="startVoiceAssistant()" title="Voice Assistant - Click to start listening, say 'five' to activate">
         🎤
     </div>
 
@@ -1368,12 +1375,13 @@
                         showVoiceAssistant();
                         processVoiceCommand(commandText);
                     } else if (lower.match(/^(5|five|5ive|5star|five star)$/)) {
-                        // Just wake word, show card and wait for command
+                        // Just wake word, show card with smooth animation and wait for command
                         showVoiceAssistant();
-                        addLog('Wake word heard, waiting for command...', 'info');
+                        addLog('Voice assistant activated! Waiting for your command...', 'success');
+                        speakText('Voice assistant ready. How can I help?');
                     } else if (raw.length > 0) {
-                        // No wake word detected
-                        addLog(`No wake word detected in: "${raw}". Say "5" first.`, 'info');
+                        // No wake word detected - stay hidden
+                        // Don't log to avoid spam, only log if it's clearly a command attempt
                     }
                 }
             };
@@ -1469,6 +1477,20 @@
                         card.style.display = 'none';
                     }
                 }, 500); // Wait for animation
+            }
+        }
+
+        function startVoiceAssistant() {
+            if (!recognition) {
+                alert('Speech recognition is not supported in your browser. Please use Chrome, Edge, or Safari.');
+                return;
+            }
+            
+            if (!isListening) {
+                autoStartVoiceAssistant();
+            } else {
+                // If already listening, just show the card
+                showVoiceAssistant();
             }
         }
 
@@ -1728,6 +1750,21 @@
         updateAIInsights();
         setInterval(updateDashboard, 5000);
         setInterval(updateAIInsights, 30000);
+        
+        // Ensure voice assistant card is hidden on load
+        document.getElementById('voiceAssistantCard').classList.add('hide');
+        
+        // Try to auto-start voice recognition (requires user interaction, so may fail silently)
+        setTimeout(() => {
+            if (recognition && !isListening) {
+                try {
+                    autoStartVoiceAssistant();
+                } catch (e) {
+                    // Silent fail - user will need to click floating indicator
+                    console.log('Auto-start requires user interaction');
+                }
+            }
+        }, 2000);
     </script>
 </body>
 </html>
