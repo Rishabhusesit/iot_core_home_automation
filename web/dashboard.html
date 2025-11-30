@@ -580,6 +580,54 @@
             z-index: 1;
         }
 
+        #voiceAssistantCard.show {
+            display: block !important;
+            opacity: 1 !important;
+            transform: translateY(0) !important;
+        }
+
+        #voiceAssistantCard.hide {
+            opacity: 0;
+            transform: translateY(20px);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        /* Subtle listening indicator when hidden */
+        .voice-listening-indicator {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, rgba(255, 95, 162, 0.3) 0%, rgba(108, 0, 124, 0.4) 100%);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(255, 95, 162, 0.3);
+            z-index: 1000;
+            animation: pulse-glow 2s ease-in-out infinite;
+        }
+
+        .voice-listening-indicator.active {
+            display: flex;
+        }
+
+        @keyframes pulse-glow {
+            0%, 100% {
+                box-shadow: 0 4px 20px rgba(255, 95, 162, 0.3);
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 4px 30px rgba(255, 95, 162, 0.6);
+                transform: scale(1.05);
+            }
+        }
+
         .ai-insights {
             background: linear-gradient(150deg, rgba(45, 0, 61, 0.85), rgba(96, 0, 91, 0.75));
             margin-top: 24px;
@@ -859,7 +907,7 @@
         </div>
 
         <!-- Voice Agent Card -->
-        <div class="card ai-query-card" style="background: linear-gradient(135deg, rgba(255, 95, 162, 0.4) 0%, rgba(108, 0, 124, 0.5) 100%);">
+        <div id="voiceAssistantCard" class="card ai-query-card" style="background: linear-gradient(135deg, rgba(255, 95, 162, 0.4) 0%, rgba(108, 0, 124, 0.5) 100%); display: none; opacity: 0; transform: translateY(20px); transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);">
             <h2><span class="card-icon">🎤</span> Voice Assistant</h2>
             <div style="display: flex; flex-direction: column; align-items: center; gap: 20px; padding: 20px 0;">
                 <button id="voiceBtn" class="voice-button" onclick="toggleVoiceAssistant()">
@@ -896,6 +944,11 @@
                 <div class="log-entry">System initialized. Waiting for data...</div>
             </div>
         </div>
+    </div>
+
+    <!-- Floating Voice Listening Indicator -->
+    <div id="voiceListeningIndicator" class="voice-listening-indicator" onclick="showVoiceAssistant()" title="Voice Assistant Active - Click to show">
+        🎤
     </div>
 
     <script>
@@ -1263,6 +1316,8 @@
                 document.getElementById('voiceBtn').classList.add('listening');
                 document.getElementById('voiceStatus').textContent = 'Listening... Say "5" + command';
                 document.getElementById('voiceIcon').textContent = '🎙️';
+                // Show floating indicator when listening
+                document.getElementById('voiceListeningIndicator').classList.add('active');
                 addLog('Voice recognition active. Say "5" followed by your command.', 'success');
             };
 
@@ -1309,9 +1364,12 @@
 
                     if (commandText && commandText.length > 0) {
                         addLog(`Wake word detected. Command: "${commandText}"`, 'info');
+                        // Show voice assistant card when wake word detected
+                        showVoiceAssistant();
                         processVoiceCommand(commandText);
                     } else if (lower.match(/^(5|five|5ive|5star|five star)$/)) {
-                        // Just wake word, wait for command
+                        // Just wake word, show card and wait for command
+                        showVoiceAssistant();
                         addLog('Wake word heard, waiting for command...', 'info');
                     } else if (raw.length > 0) {
                         // No wake word detected
@@ -1384,6 +1442,34 @@
             document.getElementById('voiceBtn').classList.remove('listening');
             document.getElementById('voiceStatus').textContent = 'Click to Start';
             document.getElementById('voiceIcon').textContent = '🎤';
+            // Hide floating indicator when stopped
+            document.getElementById('voiceListeningIndicator').classList.remove('active');
+        }
+
+        function showVoiceAssistant() {
+            const card = document.getElementById('voiceAssistantCard');
+            if (card) {
+                card.classList.remove('hide');
+                card.classList.add('show');
+                // Auto-hide after 30 seconds of inactivity
+                clearTimeout(window.voiceCardHideTimeout);
+                window.voiceCardHideTimeout = setTimeout(() => {
+                    hideVoiceAssistant();
+                }, 30000);
+            }
+        }
+
+        function hideVoiceAssistant() {
+            const card = document.getElementById('voiceAssistantCard');
+            if (card) {
+                card.classList.remove('show');
+                card.classList.add('hide');
+                setTimeout(() => {
+                    if (card.classList.contains('hide')) {
+                        card.style.display = 'none';
+                    }
+                }, 500); // Wait for animation
+            }
         }
 
         // --- Fuzzy helpers for local voice intents ---
@@ -1542,6 +1628,9 @@
 
         async function processVoiceCommand(command) {
             if (!command || !command.trim()) return;
+
+            // Show voice assistant card
+            showVoiceAssistant();
 
             // If assistant is talking and you start speaking again, cut it off
             if (synth && synth.speaking) {
